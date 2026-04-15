@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro QR SaaS (GitHub API)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <script>
+        // CONFIGURATION - Update these!
+        const GITHUB_USER = 'YOUR_USERNAME';
+        const GITHUB_REPO = 'YOUR_REPO_NAME';
+        const JSON_PATH = 'links.json';
+        
+        // Check for redirect first
+        const urlParams = new URLSearchParams(window.location.search);
+        const linkId = urlParams.get('id');
+
+        async function handleRedirect() {
+            if (linkId) {
+                const response = await fetch(`./${JSON_PATH}?t=${Date.now()}`);
+                const links = await response.json();
+                if (links[linkId]) {
+                    window.location.href = links[linkId];
+                } else {
+                    document.getElementById('status').innerText = "Link Not Found";
+                }
+            }
+        }
+        handleRedirect();
+    </script>
+
+    <div id="dashboard" class="max-w-3xl mx-auto py-12 px-4">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold">QR Hub</h1>
+            <p id="status" class="text-slate-500">Connected to GitHub Database</p>
+        </header>
+
+        <div id="setup" class="bg-yellow-50 p-4 border border-yellow-200 rounded-lg mb-6">
+            <p class="text-sm mb-2 font-semibold">GitHub Token Required for Saving:</p>
+            <input id="ghToken" type="password" placeholder="Paste GitHub Token" class="w-full p-2 border rounded">
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input id="slug" type="text" placeholder="Slug (e.g., store)" class="p-2 border rounded">
+                <input id="target" type="url" placeholder="Destination URL" class="p-2 border rounded">
+            </div>
+            <button onclick="updateDatabase()" id="saveBtn" class="w-full mt-4 bg-black text-white py-2 rounded font-medium hover:bg-slate-800">Commit to GitHub</button>
+        </div>
+
+        <div id="qrBox" class="hidden bg-white p-6 rounded-xl border mb-6 text-center">
+            <div id="qrcode" class="inline-block p-4 bg-white"></div>
+            <p id="readyUrl" class="text-xs font-mono mt-2"></p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b">
+                    <tr>
+                        <th class="px-6 py-3 text-xs uppercase font-bold text-slate-500">Path</th>
+                        <th class="px-6 py-3 text-xs uppercase font-bold text-slate-500">Destination</th>
+                    </tr>
+                </thead>
+                <tbody id="list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let currentSha = "";
+
+        async function fetchLinks() {
+            const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            currentSha = data.sha;
+            const content = JSON.parse(atob(data.content));
+            
+            const list = document.getElementById('list');
+            list.innerHTML = "";
+            Object.entries(content).forEach(([slug, url]) => {
+                list.innerHTML += `<tr class="border-b">
+                    <td class="px-6 py-4 font-mono text-sm">?id=${slug}</td>
+                    <td class="px-6 py-4 text-sm truncate max-w-xs">${url}</td>
+                </tr>`;
+            });
+            return content;
+        }
+
+        async function updateDatabase() {
+            const token = document.getElementById('ghToken').value;
+            const slug = document.getElementById('slug').value.toLowerCase();
+            const target = document.getElementById('target').value;
+            const btn = document.getElementById('saveBtn');
+
+            if(!token || !slug || !target) return alert("Fill all fields + token");
+            
+            btn.innerText = "Syncing...";
+            btn.disabled = true;
+
+            const currentContent = await fetchLinks();
+            currentContent[slug] = target;
+
+            const updatedBody = {
+                message: `Update QR: ${slug}`,
+                content: btoa(JSON.stringify(currentContent, null, 2)),
+                sha: currentSha
+            };
+
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedBody)
+            });
+
+            if(response.ok) {
+                btn.innerText = "Success!";
+                showQR(slug);
+                setTimeout(() => { btn.innerText = "Commit to GitHub"; btn.disabled = false; }, 2000);
+                fetchLinks();
+            } else {
+                alert("Error updating GitHub. Check token and repo name.");
+                btn.disabled = false;
+            }
+        }
+
+        function showQR(slug) {
+            const box = document.getElementById('qrBox');
+            const qrDiv = document.getElementById('qrcode');
+            qrDiv.innerHTML = "";
+            const finalUrl = `${window.location.href.split('?')[0]}?id=${slug}`;
+            document.getElementById('readyUrl').innerText = finalUrl;
+            box.classList.remove('hidden');
+            new QRCode(qrDiv, { text: finalUrl, width: 150, height: 150 });
+        }
+
+        fetchLinks();
+    </script>
+</body>
+</html>
