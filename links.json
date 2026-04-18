@@ -3,5 +3,6 @@
   "gold": "https://goldprice.org",
   "al-helo-barkery": "http://al-helo-bakery-menu.vercel.app/",
   "http://al-helo-bakery-menu.vercel.app/": "http://al-helo-bakery-menu.vercel.app/",
-  "al-helo-bakery-menu": "http://al-helo-bakery-menu.vercel.app/"
+  "al-helo-bakery-menu": "http://al-helo-bakery-menu.vercel.app/",
+  "/http://al-helo-bakery-menu.vercel.app/": "/http://al-helo-bakery-menu.vercel.app/"
 }
