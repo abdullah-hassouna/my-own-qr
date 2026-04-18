@@ -1,112 +1,90 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Manager SaaS</title>
+    <title>QR Manager Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;700&display=swap');
-        body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
         .ltr { direction: ltr; text-align: left; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="bg-slate-50 min-h-screen text-slate-900">
 
-    <div id="redirector" class="hidden fixed inset-0 bg-white z-[999] flex flex-col items-center justify-center text-center p-6">
-        <div class="mb-6 animate-bounce text-blue-600">
-            <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-        </div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">اسم الموقع</h1>
-        <p class="text-xl text-gray-500">يتم التحويل الآن...</p>
-        <p id="targetName" class="mt-4 font-mono text-sm text-blue-500 bg-blue-50 px-4 py-2 rounded-full ltr"></p>
-    </div>
-
-    <div id="dashboard" class="max-w-3xl mx-auto py-12 px-4 ltr" dir="ltr">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-slate-900">QR Manager</h1>
-            <p id="status" class="text-slate-500">Enter Token to Manage Links</p>
+    <div class="max-w-4xl mx-auto py-12 px-6">
+        <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900">QR SaaS Manager</h1>
+                <p id="status" class="text-slate-500 mt-1">Status: <span class="font-medium">Waiting for Authentication</span></p>
+            </div>
+            <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 w-full md:w-72">
+                <input id="ghToken" type="password" placeholder="Paste GitHub Token (ghp_...)" 
+                       class="w-full px-3 py-2 bg-transparent outline-none text-sm">
+            </div>
         </header>
 
-        <div id="setup" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
-            <input id="ghToken" type="password" placeholder="GitHub Personal Access Token" 
-                   class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-1 space-y-6">
+                <div id="formContainer" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 opacity-40 pointer-events-none transition-all duration-500">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Create New Link</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Redirect Name (Slug)</label>
+                            <input id="slug" type="text" placeholder="e.g. Portfolio" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Target URL</label>
+                            <input id="target" type="url" placeholder="https://..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button onclick="updateDatabase()" id="saveBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                            Sync to GitHub
+                        </button>
+                    </div>
+                </div>
 
-        <div id="formContainer" class="opacity-30 pointer-events-none bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input id="slug" type="text" placeholder="Name (e.g. Portfolio)" class="p-3 border rounded-xl outline-none">
-                <input id="target" type="url" placeholder="https://..." class="p-3 border rounded-xl outline-none">
+                <div id="qrBox" class="hidden bg-white p-6 rounded-2xl border-2 border-dashed border-blue-200 text-center animate-in fade-in duration-300">
+                    <div id="qrcode" class="inline-block p-2 bg-white rounded-lg"></div>
+                    <p id="readyUrl" class="text-[10px] font-mono mt-4 text-blue-500 break-all leading-relaxed"></p>
+                    <button onclick="document.getElementById('qrBox').classList.add('hidden')" class="mt-4 text-slate-400 text-xs hover:text-slate-600 underline">Dismiss</button>
+                </div>
             </div>
-            <button onclick="updateDatabase()" id="saveBtn" class="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700">Save to GitHub</button>
-        </div>
 
-        <div id="qrBox" class="hidden bg-white p-8 rounded-2xl border-2 border-dashed border-blue-200 mb-8 text-center">
-            <div id="qrcode" class="inline-block bg-white p-2 mb-4"></div>
-            <p id="readyUrl" class="text-xs font-mono text-blue-500"></p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 border-b">
-                    <tr>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Slug</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="list" class="divide-y divide-slate-100 italic text-slate-300 text-center">
-                    <tr><td colspan="2" class="py-10">Paste Token to Load Links</td></tr>
-                </tbody>
-            </table>
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100">
+                                <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Route Path</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="list" class="divide-y divide-slate-50">
+                            <tr>
+                                <td colspan="2" class="px-6 py-20 text-center text-slate-300 italic">
+                                    Unlock with Token to view links
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        /** --- CONFIGURATION --- **/
-        // MUST CHANGE THESE MANUALLY FOR REDIRECT TO WORK FOR EVERYONE
-        const GITHUB_USER = 'Abdullah-Hassouna'; // Change to your exact username
-        const GITHUB_REPO = 'my-own-qr';        // Change to your exact repo name
+        /** --- CONFIG --- **/
+        const GITHUB_USER = 'abdullah-hassouna'; 
+        const GITHUB_REPO = 'my-own-qr';        
         const JSON_PATH = 'links.json';
         let currentSha = "";
 
-        /** --- 1. PUBLIC REDIRECT LOGIC --- **/
-        const urlParams = new URLSearchParams(window.location.search);
-        const linkId = urlParams.get('id');
-
-        if (linkId) {
-            document.getElementById('redirector').classList.remove('hidden');
-            document.getElementById('dashboard').classList.add('hidden');
-
-            async function handleRedirect() {
-                try {
-                    // Use Raw URL to bypass cache and authentication
-                    const rawUrl = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${JSON_PATH}?t=${Date.now()}`;
-                    const response = await fetch(rawUrl);
-                    if (!response.ok) throw new Error("Database not found");
-                    
-                    const links = await response.json();
-                    const cleanId = linkId.toLowerCase().replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-                    
-                    if (links[cleanId]) {
-                        document.getElementById('targetName').innerText = links[cleanId];
-                        setTimeout(() => { window.location.href = links[cleanId]; }, 1500);
-                    } else {
-                        document.getElementById('redirector').innerHTML = `<h1 class="text-red-500 font-bold text-2xl">الرابط غير موجود</h1><p class="text-slate-400 mt-2 ltr">${cleanId}</p>`;
-                    }
-                } catch (e) {
-                    console.error(e);
-                    document.getElementById('redirector').innerHTML = `<p class="text-red-500 font-bold">Error loading links. Make sure the file is public.</p>`;
-                }
-            }
-            handleRedirect();
-        }
-
-        /** --- 2. PRIVATE DASHBOARD LOGIC --- **/
         const tokenInput = document.getElementById('ghToken');
 
+        /** --- AUTH GATE --- **/
         tokenInput.addEventListener('input', () => {
             if (tokenInput.value.length >= 35) fetchLinks();
         });
@@ -117,83 +95,114 @@
             
             try {
                 const res = await fetch(url, { headers: { 'Authorization': `token ${token}` } });
-                if (!res.ok) throw new Error("Auth Failed");
+                if (!res.ok) throw new Error();
 
                 const data = await res.json();
                 currentSha = data.sha;
                 const content = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, '')))));
                 
                 renderTable(content);
-                document.getElementById('formContainer').classList.remove('opacity-30', 'pointer-events-none');
-                document.getElementById('status').innerText = "✅ Connected";
+                unlockUI();
                 return content;
             } catch (err) {
-                document.getElementById('status').innerText = "❌ Connection Failed";
+                document.getElementById('status').innerHTML = `<span class="text-red-500 font-bold">Invalid Token / Access Denied</span>`;
                 return null;
             }
+        }
+
+        function unlockUI() {
+            document.getElementById('status').innerHTML = `<span class="text-green-500 font-bold">Connected to GitHub</span>`;
+            document.getElementById('formContainer').classList.remove('opacity-40', 'pointer-events-none');
         }
 
         function renderTable(links) {
             const list = document.getElementById('list');
             list.innerHTML = "";
-            Object.entries(links).forEach(([name, target]) => {
+            
+            Object.entries(links).forEach(([slug, target]) => {
                 const row = document.createElement('tr');
-                row.className = "hover:bg-slate-50 transition";
+                row.className = "hover:bg-slate-50 transition group";
                 row.innerHTML = `
-                    <td class="px-6 py-4 flex flex-col">
-                        <span class="font-bold text-slate-800">${name}</span>
-                        <span class="text-[10px] text-blue-500 font-mono">?id=${name}</span>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-800">/${slug}</span>
+                            <span class="text-[10px] text-slate-400 truncate max-w-[250px] font-mono">${target}</span>
+                        </div>
                     </td>
                     <td class="px-6 py-4 text-right">
-                        <button onclick="showQR('${name}')" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">QR</button>
+                        <button onclick="showQR('${slug}')" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-600 hover:text-white transition">QR Code</button>
                     </td>`;
                 list.appendChild(row);
             });
         }
 
+        /** --- UPDATE DATABASE --- **/
         async function updateDatabase() {
             const token = tokenInput.value;
             let rawName = document.getElementById('slug').value.trim();
-            const target = document.getElementById('target').value.trim();
+            const targetUrl = document.getElementById('target').value.trim();
             const btn = document.getElementById('saveBtn');
 
-            const cleanKey = rawName.toLowerCase().replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+            if(!rawName || !targetUrl) return alert("Missing name or target URL");
 
-            btn.innerText = "Saving...";
+            // PATH SANITIZATION: No spaces, all lowercase
+            const cleanSlug = rawName.toLowerCase().replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
+            btn.innerText = "Syncing...";
             btn.disabled = true;
 
             try {
                 const links = await fetchLinks(); 
-                links[cleanKey] = target;
+                if(!links) throw new Error("Could not fetch data");
+
+                links[cleanSlug] = targetUrl;
 
                 const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: `Link: ${cleanKey}`,
+                        message: `Add Route: /${cleanSlug}`,
                         content: btoa(unescape(encodeURIComponent(JSON.stringify(links, null, 2)))),
                         sha: currentSha
                     })
                 });
 
                 if(response.ok) {
-                    btn.innerText = "Success!";
-                    showQR(cleanKey);
+                    btn.innerText = "Update Successful";
+                    showQR(cleanSlug);
                     fetchLinks();
+                    document.getElementById('slug').value = "";
+                    document.getElementById('target').value = "";
+                } else {
+                    alert("GitHub rejected the change. Check token permissions.");
                 }
             } catch (e) { alert(e.message); }
-            setTimeout(() => { btn.innerText = "Save to GitHub"; btn.disabled = false; }, 2000);
+            
+            setTimeout(() => { 
+                btn.innerText = "Sync to GitHub"; 
+                btn.disabled = false; 
+            }, 2000);
         }
 
+        /** --- GENERATE CLEAN URL QR --- **/
         function showQR(slug) {
             const box = document.getElementById('qrBox');
             const qrDiv = document.getElementById('qrcode');
             qrDiv.innerHTML = "";
-            const baseUrl = window.location.href.split('?')[0];
-            const finalUrl = `${baseUrl}?id=${slug}`;
+            
+            // Constructs the clean path URL: domain.com/repo/slug
+            const urlPath = window.location.origin + window.location.pathname.replace('index.html', '');
+            const finalUrl = `${urlPath}${slug}`;
+            
             document.getElementById('readyUrl').innerText = finalUrl;
             box.classList.remove('hidden');
-            new QRCode(qrDiv, { text: finalUrl, width: 180, height: 180 });
+            
+            new QRCode(qrDiv, { 
+                text: finalUrl, 
+                width: 160, 
+                height: 160,
+                correctLevel: QRCode.CorrectLevel.H
+            });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
