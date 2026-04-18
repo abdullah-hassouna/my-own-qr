@@ -1,5 +1,6 @@
 {
   "tailor": "https://etiquette-tailor.com",
   "gold": "https://goldprice.org",
-  "al-helo-barkery": "http://al-helo-bakery-menu.vercel.app/"
+  "al-helo-barkery": "http://al-helo-bakery-menu.vercel.app/",
+  "http://al-helo-bakery-menu.vercel.app/": "http://al-helo-bakery-menu.vercel.app/"
 }
