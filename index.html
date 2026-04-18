@@ -177,4 +177,13 @@
             const baseUrl = window.location.href.split('?')[0];
             const finalUrl = `${baseUrl}?id=${slug}`;
             document.getElementById('readyUrl').innerText = finalUrl;
-            box.classList.
+            box.classList.remove('hidden');
+            new QRCode(qrDiv, { text: finalUrl, width: 180, height: 180, correctLevel : QRCode.CorrectLevel.H });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize table
+        if (!linkId) fetchLinks();
+    </script>
+</body>
+</html>
