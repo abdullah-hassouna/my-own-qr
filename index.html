@@ -70,51 +70,126 @@
         </div>
     </div>
 
-    <script>
+<script>
+    // These must be at the very top of your script
+    let currentSha = "";
+
     async function fetchLinks() {
-    // Adding a timestamp (?t=) prevents the browser from showing "old" data (caching)
-    const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}?t=${Date.now()}`;
-    
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Could not reach GitHub API");
-
-        const data = await res.json();
-        currentSha = data.sha; // Crucial for the 'PUT' update later
-
-        /** * SAFE DECODING: 
-         * 1. Remove newlines/spaces from the Base64 string
-         * 2. Decode Base64 to a binary string
-         * 3. Handle UTF-8 characters (like emojis or special symbols)
-         */
-        const base64Clean = data.content.replace(/\s/g, '');
-        const decodedString = decodeURIComponent(escape(atob(base64Clean)));
-        const content = JSON.parse(decodedString);
+        const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}?t=${Date.now()}`;
         
-        // Update the UI Table
-        const list = document.getElementById('list');
-        list.innerHTML = "";
-        
-        Object.entries(content).forEach(([slug, targetUrl]) => {
-            const row = document.createElement('tr');
-            row.className = "border-b hover:bg-slate-50 transition";
-            row.innerHTML = `
-                <td class="px-6 py-4 font-mono text-sm text-blue-600">?id=${slug}</td>
-                <td class="px-6 py-4 text-sm text-slate-600 truncate max-w-xs">${targetUrl}</td>
-                <td class="px-6 py-4 text-right">
-                    <button onclick="showQR('${slug}')" class="text-xs bg-slate-100 px-2 py-1 rounded">QR</button>
-                </td>
-            `;
-            list.appendChild(row);
-        });
-        
-        return content;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Could not reach GitHub API");
 
-    } catch (err) {
-        console.error("Fetch Error:", err);
-        document.getElementById('status').innerText = "Database Error: " + err.message;
-        return {};
+            const data = await res.json();
+            currentSha = data.sha; 
+
+            // Safe decoding
+            const base64Clean = data.content.replace(/\s/g, '');
+            const decodedString = decodeURIComponent(escape(atob(base64Clean)));
+            const content = JSON.parse(decodedString);
+            
+            const list = document.getElementById('list');
+            list.innerHTML = "";
+            
+            Object.entries(content).forEach(([slug, targetUrl]) => {
+                const row = document.createElement('tr');
+                row.className = "border-b hover:bg-slate-50 transition";
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-mono text-sm text-blue-600">?id=${slug}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600 truncate max-w-xs">${targetUrl}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="showQR('${slug}')" class="text-xs bg-slate-100 px-2 py-1 rounded">QR</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+            
+            return content;
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            return {};
+        }
     }
-}</script>
+
+    // This is the function that was "missing"
+    async function updateDatabase() {
+        const token = document.getElementById('ghToken').value;
+        const slug = document.getElementById('slug').value.trim().toLowerCase();
+        const target = document.getElementById('target').value.trim();
+        const btn = document.getElementById('saveBtn');
+
+        if(!token || !slug || !target) {
+            alert("Please provide: Token, Slug, and Destination URL");
+            return;
+        }
+        
+        btn.innerText = "Syncing with GitHub...";
+        btn.disabled = true;
+
+        try {
+            const currentContent = await fetchLinks();
+            currentContent[slug] = target;
+
+            const updatedBody = {
+                message: `Update QR: ${slug}`,
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(currentContent, null, 2)))),
+                sha: currentSha
+            };
+
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_PATH}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `token ${token}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(updatedBody)
+            });
+
+            if(response.ok) {
+                btn.innerText = "Saved Successfully!";
+                showQR(slug);
+                setTimeout(() => { 
+                    btn.innerText = "Commit to GitHub"; 
+                    btn.disabled = false; 
+                }, 2000);
+                fetchLinks(); // Refresh the table
+            } else {
+                const errorData = await response.json();
+                alert("GitHub Error: " + errorData.message);
+                btn.disabled = false;
+                btn.innerText = "Commit to GitHub";
+            }
+        } catch (err) {
+            alert("Connection Error: " + err.message);
+            btn.disabled = false;
+        }
+    }
+
+    function showQR(slug) {
+        const box = document.getElementById('qrBox');
+        const qrDiv = document.getElementById('qrcode');
+        qrDiv.innerHTML = "";
+        
+        // Get base URL without params
+        const baseUrl = window.location.href.split('?')[0];
+        const finalUrl = `${baseUrl}?id=${slug}`;
+        
+        document.getElementById('readyUrl').innerText = finalUrl;
+        box.classList.remove('hidden');
+        
+        new QRCode(qrDiv, { 
+            text: finalUrl, 
+            width: 150, 
+            height: 150,
+            correctLevel : QRCode.CorrectLevel.H
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Initial load
+    fetchLinks();
+</script>
+    
 </body>
 </html>
