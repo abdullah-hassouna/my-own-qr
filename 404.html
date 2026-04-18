@@ -2,88 +2,58 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جاري التوجيه...</title>
+    <title>جاري التحويل...</title>
+    
+    <script>
+        /** * تشغيل الكود فوراً قبل تحميل أي عنصر HTML 
+         * الهدف: استخراج الرابط الوجهة من المسار (Path) وتوجيه المستخدم
+         **/
+        (function() {
+            // 1. الحصول على الرابط الكامل
+            const fullUrl = window.location.href;
+            
+            // 2. تحديد الكلمة المفتاحية (اسم المستودع)
+            const repoName = "my-own-qr/";
+            const startIndex = fullUrl.indexOf(repoName);
+
+            if (startIndex !== -1) {
+                // 3. استخراج كل ما بعد "my-own-qr/"
+                let target = fullUrl.substring(startIndex + repoName.length);
+
+                // 4. تنظيف الرابط من أي سلاش زائد في البداية
+                target = target.replace(/^\/+/, '');
+
+                if (target) {
+                    // تصحيح الرابط إذا كان لا يبدأ بـ http (مثل vercel.app)
+                    if (!target.startsWith('http')) {
+                        target = 'https://' + target;
+                    }
+
+                    // 5. التوجيه الفوري (Replace تمنع المستخدم من العودة لصفحة الـ 404 عند الضغط على Back)
+                    window.location.replace(target);
+                } else {
+                    // إذا كان المسار فارغاً، ننتظر تحميل الصفحة لعرض الواجهة الرئيسية
+                    window.addEventListener('DOMContentLoaded', () => {
+                         window.location.href = "index.html";
+                    });
+                }
+            }
+        })();
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;700&display=swap');
         body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
     </style>
 </head>
-<body class="bg-slate-50 flex flex-col items-center justify-center min-h-screen text-center p-6">
+<body class="bg-slate-50 flex items-center justify-center min-h-screen text-center p-6">
 
-    <div id="status-container" class="animate-in fade-in duration-700">
-        <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6 mx-auto"></div>
-        <h1 class="text-2xl font-bold text-slate-800 mb-2">جاري تحويلك الآن</h1>
-        <p id="slug-display" class="text-slate-400 font-mono text-sm ltr"></p>
+    <div id="fallback-ui">
+        <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4 mx-auto"></div>
+        <h1 class="text-xl font-bold text-slate-800">جاري توجيهك إلى الوجهة المطلوبة...</h1>
+        <p class="text-slate-400 mt-2 text-sm">إذا لم يتم تحويلك تلقائياً، يرجى التحقق من الرابط.</p>
     </div>
 
-    <script>
-        /** --- CONFIGURATION --- **/
-        const GITHUB_USER = 'Abdullah-Hassouna';
-        const GITHUB_REPO = 'my-own-qr';
-        const JSON_PATH = 'links.json';
-
-        async function handleRedirect() {
-            // 1. Get the path and extract the LAST segment (the slug)
-            // Example: /my-own-qr/app-link -> ["my-own-qr", "app-link"] -> "app-link"
-            const pathSegments = window.location.pathname.split('/').filter(p => p.length > 0);
-            const slug = pathSegments.pop();
-
-            // Display the slug to the user while loading
-            if (slug) document.getElementById('slug-display').innerText = `Path: /${slug}`;
-
-            // Safety: If no slug or user landed on root, go to dashboard
-            if (!slug || slug === GITHUB_REPO || slug === "index.html") {
-                window.location.href = "index.html";
-                return;
-            }
-
-            try {
-                /** * 2. PUBLIC FETCH
-                 * We use raw.githubusercontent.com to ensure ANY user 
-                 * can access the data without a GHP Token.
-                 **/
-                const rawUrl = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${JSON_PATH}?t=${Date.now()}`;
-                const response = await fetch(rawUrl);
-                
-                if (!response.ok) throw new Error("Database not found");
-                
-                const links = await response.json();
-
-                // 3. Match the slug (Case-insensitive)
-                const cleanSlug = slug.toLowerCase().trim();
-                const destination = links[cleanSlug];
-
-                if (destination) {
-                    // Success: Redirect using replace (so the 404 page isn't in history)
-                    setTimeout(() => {
-                        window.location.replace(destination);
-                    }, 1000);
-                } else {
-                    // Slug not found in JSON
-                    renderError(`الرابط "${slug}" غير مسجل في النظام.`);
-                }
-            } catch (error) {
-                console.error("Redirect logic failed:", error);
-                renderError("حدث خطأ في الوصول إلى قاعدة البيانات. تأكد من أن المستودع العام (Public).");
-            }
-        }
-
-        function renderError(message) {
-            document.getElementById('status-container').innerHTML = `
-                <div class="text-red-500 mb-4">
-                    <svg class="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <h1 class="text-xl font-bold text-slate-900 mb-4">${message}</h1>
-                <a href="index.html" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">العودة للرئيسية</a>
-            `;
-        }
-
-        // Initialize
-        handleRedirect();
-    </script>
 </body>
 </html>
